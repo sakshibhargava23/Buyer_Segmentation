@@ -1,0 +1,5 @@
+segment_id,segment_name,buyers,avg_age,pct_investment,pct_loan,avg_satisfaction,avg_investment,avg_properties,top_country,top_region,top_referral
+0,Global Investors,777,53.06,0.0,32.6,3.05,1458269.78,3.76,Usa,California,Website
+1,First-Time Buyers,8,44.91,37.5,62.5,3.38,0.0,0.0,Usa,California,Agency
+2,Corporate Buyers,441,52.72,100.0,38.5,3.1,1381528.22,3.73,Usa,California,Website
+3,Luxury Investors,782,53.41,22.3,40.0,2.97,995423.78,3.51,Usa,California,Website

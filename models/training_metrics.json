@@ -1,0 +1,64 @@
+{
+  "optimal_k_silhouette": 3,
+  "trained_k": 4,
+  "silhouette_k4": 0.1338,
+  "total_clients": 2008,
+  "segments": [
+    {
+      "segment_id": 0,
+      "segment_name": "Global Investors",
+      "buyers": 777,
+      "avg_age": 53.06,
+      "pct_investment": 0.0,
+      "pct_loan": 32.6,
+      "avg_satisfaction": 3.05,
+      "avg_investment": 1458269.78,
+      "avg_properties": 3.76,
+      "top_country": "Usa",
+      "top_region": "California",
+      "top_referral": "Website"
+    },
+    {
+      "segment_id": 1,
+      "segment_name": "First-Time Buyers",
+      "buyers": 8,
+      "avg_age": 44.91,
+      "pct_investment": 37.5,
+      "pct_loan": 62.5,
+      "avg_satisfaction": 3.38,
+      "avg_investment": 0.0,
+      "avg_properties": 0.0,
+      "top_country": "Usa",
+      "top_region": "California",
+      "top_referral": "Agency"
+    },
+    {
+      "segment_id": 2,
+      "segment_name": "Corporate Buyers",
+      "buyers": 441,
+      "avg_age": 52.72,
+      "pct_investment": 100.0,
+      "pct_loan": 38.5,
+      "avg_satisfaction": 3.1,
+      "avg_investment": 1381528.22,
+      "avg_properties": 3.73,
+      "top_country": "Usa",
+      "top_region": "California",
+      "top_referral": "Website"
+    },
+    {
+      "segment_id": 3,
+      "segment_name": "Luxury Investors",
+      "buyers": 782,
+      "avg_age": 53.41,
+      "pct_investment": 22.3,
+      "pct_loan": 40.0,
+      "avg_satisfaction": 2.97,
+      "avg_investment": 995423.78,
+      "avg_properties": 3.51,
+      "top_country": "Usa",
+      "top_region": "California",
+      "top_referral": "Website"
+    }
+  ]
+}
