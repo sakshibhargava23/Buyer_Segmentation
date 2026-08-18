@@ -32,10 +32,26 @@ SEGMENT_COLORS = {
 }
 
 CHART_LAYOUT = dict(
-    template="plotly_white",
-    margin=dict(l=20, r=20, t=50, b=20),
-    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-    font=dict(size=13),
+    template="plotly_dark",
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="rgba(0,0,0,0)",
+    margin=dict(l=60, r=25, t=60, b=65),
+    title=dict(
+        font=dict(size=16, color="#FFFFFF"),
+        y=0.98,
+        x=0.0,
+        xanchor="left",
+    ),
+    legend=dict(
+        orientation="h",
+        yanchor="top",
+        y=-0.22,
+        xanchor="center",
+        x=0.5,
+        title_text="",
+        font=dict(color="#FFFFFF", size=11),
+    ),
+    font=dict(size=12, color="#E2E8F0"),
 )
 
 
@@ -104,6 +120,18 @@ def apply_filters(df: pd.DataFrame) -> pd.DataFrame:
 
 def styled_figure(fig):
     fig.update_layout(**CHART_LAYOUT)
+    fig.update_xaxes(
+        tickfont=dict(color="#CBD5E1", size=11),
+        title_font=dict(color="#FFFFFF", size=12),
+        gridcolor="rgba(255, 255, 255, 0.08)",
+        linecolor="rgba(255, 255, 255, 0.2)",
+    )
+    fig.update_yaxes(
+        tickfont=dict(color="#CBD5E1", size=11),
+        title_font=dict(color="#FFFFFF", size=12),
+        gridcolor="rgba(255, 255, 255, 0.08)",
+        linecolor="rgba(255, 255, 255, 0.2)",
+    )
     return fig
 
 
@@ -192,15 +220,6 @@ def render_sidebar(df: pd.DataFrame) -> None:
         load_data.clear()
         st.rerun()
 
-    st.sidebar.divider()
-    st.sidebar.subheader("Where is data stored?")
-    st.sidebar.info(
-        "No database is used. Data is stored locally as files:\n\n"
-        f"- Raw input: `{DATA_DIR}/`\n"
-        f"- Trained output: `{MODELS_DIR}/`\n"
-        f"- Charts/reports: `{OUTPUTS_DIR}/`"
-    )
-
 
 def overview_tab(df: pd.DataFrame, metrics: dict) -> None:
     st.subheader("Buyer Segmentation Overview")
@@ -229,8 +248,17 @@ def overview_tab(df: pd.DataFrame, metrics: dict) -> None:
             color="Segment",
             color_discrete_map=SEGMENT_COLORS,
         )
-        fig.update_traces(textinfo="percent+label")
-        st.plotly_chart(styled_figure(fig), use_container_width=True)
+        fig.update_traces(textinfo="percent+label", textfont=dict(color="#FFFFFF", size=12))
+        fig.update_layout(
+            template="plotly_dark",
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            margin=dict(l=20, r=20, t=60, b=50),
+            title=dict(font=dict(size=16, color="#FFFFFF"), y=0.98, x=0.0, xanchor="left"),
+            legend=dict(orientation="h", yanchor="top", y=-0.1, xanchor="center", x=0.5, title_text="", font=dict(color="#FFFFFF", size=11)),
+            font=dict(size=12, color="#FFFFFF"),
+        )
+        st.plotly_chart(fig, use_container_width=True)
 
     with c2:
         if (FIGURES_DIR / "cluster_evaluation.png").exists():
@@ -345,7 +373,6 @@ def geographic_tab(df: pd.DataFrame) -> None:
     region_totals = region_seg.groupby("region")["buyers"].transform("sum")
     region_seg["share_pct"] = (region_seg["buyers"] / region_totals * 100).round(1)
 
-    st.markdown("#### Top Regions by Buyer Volume")
     fig_regions = px.bar(
         region_seg,
         y="region",
@@ -358,13 +385,16 @@ def geographic_tab(df: pd.DataFrame) -> None:
         labels={"buyers": "Buyers", "region": "Region", "segment_name": "Segment"},
         color_discrete_map=SEGMENT_COLORS,
     )
-    fig_regions.update_layout(height=420, yaxis=dict(autorange="reversed"))
+    fig_regions.update_layout(
+        height=450,
+        margin=dict(l=90, r=25, t=60, b=65),
+        yaxis=dict(autorange="reversed"),
+    )
     st.plotly_chart(styled_figure(fig_regions), use_container_width=True)
 
     c1, c2 = st.columns(2)
 
     with c1:
-        st.markdown("#### Country View")
         country_seg = (
             df.groupby(["country", "segment_name"], as_index=False)
             .size()
@@ -380,10 +410,13 @@ def geographic_tab(df: pd.DataFrame) -> None:
             labels={"country": "Country", "buyers": "Buyers", "segment_name": "Segment"},
             color_discrete_map=SEGMENT_COLORS,
         )
+        fig_country.update_layout(
+            height=460,
+            margin=dict(l=50, r=20, t=60, b=75),
+        )
         st.plotly_chart(styled_figure(fig_country), use_container_width=True)
 
     with c2:
-        st.markdown("#### Segment Mix by Region (%)")
         fig_mix = px.bar(
             region_seg,
             y="region",
@@ -392,13 +425,18 @@ def geographic_tab(df: pd.DataFrame) -> None:
             orientation="h",
             barmode="stack",
             category_orders={"region": region_order},
-            title="Segment Share Within Each Region",
+            title="Segment Share Within Each Region (%)",
             labels={"share_pct": "Share (%)", "region": "Region", "segment_name": "Segment"},
             color_discrete_map=SEGMENT_COLORS,
             text="share_pct",
         )
         fig_mix.update_traces(texttemplate="%{text:.0f}%", textposition="inside")
-        fig_mix.update_layout(height=420, xaxis=dict(range=[0, 100]), yaxis=dict(autorange="reversed"))
+        fig_mix.update_layout(
+            height=460,
+            xaxis=dict(range=[0, 100]),
+            yaxis=dict(autorange="reversed"),
+            margin=dict(l=90, r=20, t=60, b=75),
+        )
         st.plotly_chart(styled_figure(fig_mix), use_container_width=True)
 
     st.markdown("#### Region Summary Table")
@@ -469,17 +507,27 @@ def insights_tab(df: pd.DataFrame) -> None:
     with c1:
         ref = seg_df["referral_channel"].value_counts().reset_index()
         ref.columns = ["Channel", "Count"]
+        ref_fig = px.bar(ref, x="Channel", y="Count", title=f"Referral Channels – {segment}")
+        ref_fig.update_layout(showlegend=False)
         st.plotly_chart(
-            styled_figure(px.bar(ref, x="Channel", y="Count", title=f"Referral Channels – {segment}")),
+            styled_figure(ref_fig),
             use_container_width=True,
         )
     with c2:
         loan = seg_df["loan_applied"].value_counts().reset_index()
         loan.columns = ["Loan Applied", "Count"]
-        st.plotly_chart(
-            styled_figure(px.pie(loan, names="Loan Applied", values="Count", title=f"Financing – {segment}")),
-            use_container_width=True,
+        loan_fig = px.pie(loan, names="Loan Applied", values="Count", title=f"Financing – {segment}")
+        loan_fig.update_traces(textinfo="percent+label", textfont=dict(color="#FFFFFF", size=12))
+        loan_fig.update_layout(
+            template="plotly_dark",
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            margin=dict(l=20, r=20, t=60, b=50),
+            title=dict(font=dict(size=16, color="#FFFFFF"), y=0.98, x=0.0, xanchor="left"),
+            legend=dict(orientation="h", yanchor="top", y=-0.1, xanchor="center", x=0.5, title_text="", font=dict(color="#FFFFFF", size=11)),
+            font=dict(size=12, color="#FFFFFF"),
         )
+        st.plotly_chart(loan_fig, use_container_width=True)
 
     st.dataframe(
         seg_df[
