@@ -13,7 +13,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from src.clustering import (  # noqa: E402
     cluster_summary,
     map_clusters_to_segments,
-    save_dendrogram,
+    save_segment_profile_chart,
     save_evaluation_plots,
     save_model,
     save_segment_distribution,
@@ -65,7 +65,7 @@ def main() -> None:
         json.dump(metrics, f, indent=2)
 
     save_evaluation_plots(result)
-    save_dendrogram(features)
+    save_segment_profile_chart(segmented)
     save_segment_distribution(segmented)
 
     print("\nSegment Summary:")

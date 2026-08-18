@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from scipy.cluster.hierarchy import dendrogram, linkage
 from sklearn.cluster import AgglomerativeClustering, KMeans
 from sklearn.metrics import silhouette_score
 
@@ -177,22 +176,34 @@ def save_evaluation_plots(result: ClusteringResult, output_dir=FIGURES_DIR) -> N
     plt.close(fig)
 
 
-def save_dendrogram(features: np.ndarray, sample_size: int = 200, output_dir=FIGURES_DIR) -> None:
-    """Save hierarchical clustering dendrogram (sampled for readability)."""
+def save_segment_profile_chart(df: pd.DataFrame, output_dir=FIGURES_DIR) -> None:
+    """Save a simple segment comparison chart for the overview page."""
     output_dir.mkdir(parents=True, exist_ok=True)
-    rng = np.random.default_rng(42)
-    idx = rng.choice(features.shape[0], size=min(sample_size, features.shape[0]), replace=False)
-    sample = features[idx]
-    linked = linkage(sample, method="ward")
+    profile = (
+        df.groupby("segment_name")
+        .agg(
+            avg_investment=("total_investment", "mean"),
+            avg_satisfaction=("satisfaction_score", "mean"),
+            loan_rate=("loan_applied_flag", "mean"),
+        )
+        .reset_index()
+    )
+    profile["avg_investment"] = profile["avg_investment"] / 1000
+    profile["loan_rate"] *= 100
 
-    plt.figure(figsize=(12, 5))
-    dendrogram(linked, truncate_mode="lastp", p=12, show_leaf_counts=True)
-    plt.title("Hierarchical Clustering Dendrogram (Sample)")
-    plt.xlabel("Cluster")
-    plt.ylabel("Distance")
+    fig, ax = plt.subplots(figsize=(10, 5))
+    x = range(len(profile))
+    width = 0.25
+    ax.bar([i - width for i in x], profile["avg_investment"], width, label="Avg Investment ($K)")
+    ax.bar(x, profile["avg_satisfaction"], width, label="Avg Satisfaction (1-5)")
+    ax.bar([i + width for i in x], profile["loan_rate"], width, label="Loan Rate (%)")
+    ax.set_xticks(list(x))
+    ax.set_xticklabels(profile["segment_name"], rotation=12, ha="right")
+    ax.set_title("Segment Profile Comparison")
+    ax.legend(loc="upper right", fontsize=8)
     plt.tight_layout()
-    plt.savefig(output_dir / "dendrogram.png", dpi=150)
-    plt.close()
+    fig.savefig(output_dir / "segment_profile.png", dpi=150)
+    plt.close(fig)
 
 
 def save_segment_distribution(df: pd.DataFrame, output_dir=FIGURES_DIR) -> None:

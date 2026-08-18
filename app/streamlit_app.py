@@ -14,7 +14,8 @@ import streamlit as st
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
 MODELS_DIR = PROJECT_ROOT / "models"
-FIGURES_DIR = PROJECT_ROOT / "outputs" / "figures"
+OUTPUTS_DIR = PROJECT_ROOT / "outputs"
+FIGURES_DIR = OUTPUTS_DIR / "figures"
 
 SOURCE_FILES = [DATA_DIR / "clients.csv", DATA_DIR / "properties.csv"]
 MODEL_FILES = [
@@ -22,6 +23,20 @@ MODEL_FILES = [
     MODELS_DIR / "cluster_summary.csv",
     MODELS_DIR / "training_metrics.json",
 ]
+
+SEGMENT_COLORS = {
+    "Global Investors": "#2563EB",
+    "First-Time Buyers": "#DB2777",
+    "Corporate Buyers": "#D97706",
+    "Luxury Investors": "#059669",
+}
+
+CHART_LAYOUT = dict(
+    template="plotly_white",
+    margin=dict(l=20, r=20, t=50, b=20),
+    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    font=dict(size=13),
+)
 
 
 def _file_mtime(path: Path) -> float:
@@ -87,6 +102,49 @@ def apply_filters(df: pd.DataFrame) -> pd.DataFrame:
     return filtered
 
 
+def styled_figure(fig):
+    fig.update_layout(**CHART_LAYOUT)
+    return fig
+
+
+def top_regions(df: pd.DataFrame, n: int = 10) -> list[str]:
+    return df["region"].value_counts().head(n).index.tolist()
+
+
+def segment_profile_chart(df: pd.DataFrame):
+    profile = (
+        df.groupby("segment_name")
+        .agg(
+            avg_investment_k=("total_investment", lambda s: s.mean() / 1000),
+            avg_satisfaction=("satisfaction_score", "mean"),
+            loan_rate=("loan_applied_flag", lambda s: s.mean() * 100),
+        )
+        .reset_index()
+    )
+    melted = profile.melt(
+        id_vars="segment_name",
+        var_name="Metric",
+        value_name="Value",
+    )
+    labels = {
+        "avg_investment_k": "Avg Investment ($K)",
+        "avg_satisfaction": "Avg Satisfaction",
+        "loan_rate": "Loan Rate (%)",
+    }
+    melted["Metric"] = melted["Metric"].map(labels)
+    fig = px.bar(
+        melted,
+        x="segment_name",
+        y="Value",
+        color="Metric",
+        barmode="group",
+        title="Segment Profile Comparison",
+        labels={"segment_name": "Buyer Segment", "Value": "Score"},
+        color_discrete_sequence=px.colors.qualitative.Set2,
+    )
+    return styled_figure(fig)
+
+
 def render_sidebar(df: pd.DataFrame) -> None:
     st.sidebar.header("Filters")
     st.session_state["filter_country"] = st.sidebar.selectbox(
@@ -134,6 +192,15 @@ def render_sidebar(df: pd.DataFrame) -> None:
         load_data.clear()
         st.rerun()
 
+    st.sidebar.divider()
+    st.sidebar.subheader("Where is data stored?")
+    st.sidebar.info(
+        "No database is used. Data is stored locally as files:\n\n"
+        f"- Raw input: `{DATA_DIR}/`\n"
+        f"- Trained output: `{MODELS_DIR}/`\n"
+        f"- Charts/reports: `{OUTPUTS_DIR}/`"
+    )
+
 
 def overview_tab(df: pd.DataFrame, metrics: dict) -> None:
     st.subheader("Buyer Segmentation Overview")
@@ -153,15 +220,30 @@ def overview_tab(df: pd.DataFrame, metrics: dict) -> None:
     with c1:
         dist = df["segment_name"].value_counts().reset_index()
         dist.columns = ["Segment", "Count"]
-        fig = px.pie(dist, names="Segment", values="Count", title="Cluster Distribution")
-        st.plotly_chart(fig, use_container_width=True)
+        fig = px.pie(
+            dist,
+            names="Segment",
+            values="Count",
+            hole=0.45,
+            title="Buyer Segment Split",
+            color="Segment",
+            color_discrete_map=SEGMENT_COLORS,
+        )
+        fig.update_traces(textinfo="percent+label")
+        st.plotly_chart(styled_figure(fig), use_container_width=True)
 
     with c2:
         if (FIGURES_DIR / "cluster_evaluation.png").exists():
-            st.image(str(FIGURES_DIR / "cluster_evaluation.png"), caption="Elbow & Silhouette Analysis")
+            st.image(
+                str(FIGURES_DIR / "cluster_evaluation.png"),
+                caption="Model Quality: Elbow Method and Silhouette Score",
+            )
 
-    if (FIGURES_DIR / "dendrogram.png").exists():
-        st.image(str(FIGURES_DIR / "dendrogram.png"), caption="Hierarchical Clustering Dendrogram")
+    st.plotly_chart(segment_profile_chart(df), use_container_width=True)
+    st.caption(
+        "Segment profile chart replaces the old dendrogram for a clearer business view "
+        "of investment, satisfaction, and loan behavior."
+    )
 
 
 def investor_tab(df: pd.DataFrame) -> None:
@@ -192,8 +274,10 @@ def investor_tab(df: pd.DataFrame) -> None:
         color="segment_name",
         title="Average Total Investment by Segment",
         labels={"segment_name": "Segment", "avg_investment": "Avg Investment ($)"},
+        color_discrete_map=SEGMENT_COLORS,
     )
-    st.plotly_chart(fig, use_container_width=True)
+    fig.update_layout(showlegend=False)
+    st.plotly_chart(styled_figure(fig), use_container_width=True)
 
     c1, c2 = st.columns(2)
     with c1:
@@ -203,8 +287,10 @@ def investor_tab(df: pd.DataFrame) -> None:
             y="investment_rate",
             color="segment_name",
             title="Investment Purchase Rate (%)",
+            color_discrete_map=SEGMENT_COLORS,
         )
-        st.plotly_chart(fig2, use_container_width=True)
+        fig2.update_layout(showlegend=False)
+        st.plotly_chart(styled_figure(fig2), use_container_width=True)
 
     with c2:
         fig3 = px.bar(
@@ -213,8 +299,10 @@ def investor_tab(df: pd.DataFrame) -> None:
             y="loan_rate",
             color="segment_name",
             title="Loan Dependency Rate (%)",
+            color_discrete_map=SEGMENT_COLORS,
         )
-        st.plotly_chart(fig3, use_container_width=True)
+        fig3.update_layout(showlegend=False)
+        st.plotly_chart(styled_figure(fig3), use_container_width=True)
 
     purpose_mix = (
         df.groupby(["segment_name", "acquisition_purpose"])
@@ -228,55 +316,104 @@ def investor_tab(df: pd.DataFrame) -> None:
         color="acquisition_purpose",
         barmode="group",
         title="Acquisition Purpose by Segment",
+        color_discrete_sequence=px.colors.qualitative.Pastel,
     )
-    st.plotly_chart(fig4, use_container_width=True)
+    st.plotly_chart(styled_figure(fig4), use_container_width=True)
 
 
 def geographic_tab(df: pd.DataFrame) -> None:
     st.subheader("Geographic Buyer Analysis")
+    st.caption(
+        "Charts focus on the top regions and countries so the view stays readable. "
+        "Use sidebar filters to drill down further."
+    )
 
     if df.empty:
         st.warning("No buyers match the selected filters.")
         return
 
+    top_n = st.slider("Number of top regions to show", min_value=5, max_value=15, value=10)
+    regions = top_regions(df, top_n)
+    geo_df = df[df["region"].isin(regions)].copy()
+    region_order = geo_df["region"].value_counts().index.tolist()[::-1]
+
     region_seg = (
-        df.groupby(["region", "segment_name"])
+        geo_df.groupby(["region", "segment_name"], as_index=False)
         .size()
-        .reset_index(name="buyers")
+        .rename(columns={"size": "buyers"})
     )
-    fig = px.bar(
+    region_totals = region_seg.groupby("region")["buyers"].transform("sum")
+    region_seg["share_pct"] = (region_seg["buyers"] / region_totals * 100).round(1)
+
+    st.markdown("#### Top Regions by Buyer Volume")
+    fig_regions = px.bar(
         region_seg,
-        x="region",
-        y="buyers",
+        y="region",
+        x="buyers",
         color="segment_name",
-        title="Buyer Segments by Region",
-        labels={"buyers": "Number of Buyers"},
+        orientation="h",
+        barmode="stack",
+        category_orders={"region": region_order},
+        title=f"Buyer Count in Top {top_n} Regions",
+        labels={"buyers": "Buyers", "region": "Region", "segment_name": "Segment"},
+        color_discrete_map=SEGMENT_COLORS,
     )
-    fig.update_layout(xaxis_tickangle=-45)
-    st.plotly_chart(fig, use_container_width=True)
+    fig_regions.update_layout(height=420, yaxis=dict(autorange="reversed"))
+    st.plotly_chart(styled_figure(fig_regions), use_container_width=True)
 
-    country_seg = (
-        df.groupby(["country", "segment_name"])
-        .size()
-        .reset_index(name="buyers")
-    )
-    fig2 = px.treemap(
-        country_seg,
-        path=["country", "segment_name"],
-        values="buyers",
-        title="Geographic Distribution of Buyer Segments",
-    )
-    st.plotly_chart(fig2, use_container_width=True)
+    c1, c2 = st.columns(2)
 
-    heatmap_data = pd.crosstab(df["region"], df["segment_name"])
-    fig3 = px.imshow(
-        heatmap_data,
-        text_auto=True,
-        aspect="auto",
-        title="Region vs Segment Heatmap",
-        labels=dict(x="Segment", y="Region", color="Buyers"),
+    with c1:
+        st.markdown("#### Country View")
+        country_seg = (
+            df.groupby(["country", "segment_name"], as_index=False)
+            .size()
+            .rename(columns={"size": "buyers"})
+        )
+        fig_country = px.bar(
+            country_seg,
+            x="country",
+            y="buyers",
+            color="segment_name",
+            barmode="group",
+            title="Buyers by Country",
+            labels={"country": "Country", "buyers": "Buyers", "segment_name": "Segment"},
+            color_discrete_map=SEGMENT_COLORS,
+        )
+        st.plotly_chart(styled_figure(fig_country), use_container_width=True)
+
+    with c2:
+        st.markdown("#### Segment Mix by Region (%)")
+        fig_mix = px.bar(
+            region_seg,
+            y="region",
+            x="share_pct",
+            color="segment_name",
+            orientation="h",
+            barmode="stack",
+            category_orders={"region": region_order},
+            title="Segment Share Within Each Region",
+            labels={"share_pct": "Share (%)", "region": "Region", "segment_name": "Segment"},
+            color_discrete_map=SEGMENT_COLORS,
+            text="share_pct",
+        )
+        fig_mix.update_traces(texttemplate="%{text:.0f}%", textposition="inside")
+        fig_mix.update_layout(height=420, xaxis=dict(range=[0, 100]), yaxis=dict(autorange="reversed"))
+        st.plotly_chart(styled_figure(fig_mix), use_container_width=True)
+
+    st.markdown("#### Region Summary Table")
+    region_summary = (
+        region_seg.sort_values(["region", "buyers"], ascending=[True, False])
+        .groupby("region", as_index=False)
+        .agg(
+            total_buyers=("buyers", "sum"),
+            leading_segment=("segment_name", "first"),
+            leading_share_pct=("share_pct", "first"),
+        )
+        .sort_values("total_buyers", ascending=False)
     )
-    st.plotly_chart(fig3, use_container_width=True)
+    region_summary["leading_share_pct"] = region_summary["leading_share_pct"].map(lambda x: f"{x:.1f}%")
+    st.dataframe(region_summary, use_container_width=True, hide_index=True)
 
 
 def build_segment_summary(seg_df: pd.DataFrame) -> dict:
@@ -333,14 +470,14 @@ def insights_tab(df: pd.DataFrame) -> None:
         ref = seg_df["referral_channel"].value_counts().reset_index()
         ref.columns = ["Channel", "Count"]
         st.plotly_chart(
-            px.bar(ref, x="Channel", y="Count", title=f"Referral Channels – {segment}"),
+            styled_figure(px.bar(ref, x="Channel", y="Count", title=f"Referral Channels – {segment}")),
             use_container_width=True,
         )
     with c2:
         loan = seg_df["loan_applied"].value_counts().reset_index()
         loan.columns = ["Loan Applied", "Count"]
         st.plotly_chart(
-            px.pie(loan, names="Loan Applied", values="Count", title=f"Financing – {segment}"),
+            styled_figure(px.pie(loan, names="Loan Applied", values="Count", title=f"Financing – {segment}")),
             use_container_width=True,
         )
 
